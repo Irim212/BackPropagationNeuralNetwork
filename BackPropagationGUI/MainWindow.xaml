@@ -1,0 +1,30 @@
+﻿<Window x:Name="GUIWindow" x:Class="BackPropagationGUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BackPropagationGUI"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
+        Title="Neural Network Project" 
+        Height="424.5" 
+        Width="800" >
+    <Grid Background="#282828">
+        <Grid Width="200" Height="200" Margin="40,25,502,144">
+            <InkCanvas x:Name="DrawingCanvas" HorizontalAlignment="Left" Height="200" VerticalAlignment="Top" Width="200" Background="White"/>
+        </Grid>
+        <Button x:Name="EraseButton" Content="Erase" HorizontalAlignment="Left" Margin="308,52,0,0" VerticalAlignment="Top" Width="75"/>
+        <Button x:Name="SaveButton" Content="Save" HorizontalAlignment="Left" Margin="308,95,0,0" VerticalAlignment="Top" Width="75"/>
+        <Button x:Name="LoadButton" Content="Load" HorizontalAlignment="Left" Margin="308,141,0,0" VerticalAlignment="Top" Width="75"/>
+        <TextBox x:Name="FileName" HorizontalAlignment="Left" Height="23" Margin="33,284,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="250"/>
+        <TextBlock HorizontalAlignment="Left" Margin="33,250,0,0" TextWrapping="Wrap" Text="File Name" VerticalAlignment="Top" Width="250" Height="25" FontSize="18" FontWeight="Bold" FontFamily="Segoe UI Black" Foreground="White"/>
+        <Button x:Name="ReadCanvas" Content="Read Canvas" HorizontalAlignment="Left" Margin="308,185,0,0" VerticalAlignment="Top" Width="75"/>
+        <TextBlock HorizontalAlignment="Left" Margin="466,50,0,0" TextWrapping="Wrap" Text="Learn Neural Network" VerticalAlignment="Top" Width="250" Height="25" FontSize="18" FontWeight="Bold" FontFamily="Segoe UI Black" Foreground="White"/>
+        <TextBox x:Name="ExpectedOutputTextBlock" HorizontalAlignment="Left" Height="23" Margin="466,119,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <TextBlock HorizontalAlignment="Left" Margin="466,97,0,0" TextWrapping="Wrap" Text="Expected output" VerticalAlignment="Top" Width="250" Height="25" FontSize="11" FontFamily="Segoe UI Black" Foreground="White"/>
+        <Button x:Name="LearnButton" Content="Learn" HorizontalAlignment="Left" Margin="466,170,0,0" VerticalAlignment="Top" Width="75"/>
+        <Rectangle Fill="#FFF4F4F5" HorizontalAlignment="Left" Height="285" Margin="414,22,0,0" Stroke="Black" VerticalAlignment="Top" Width="7"/>
+        <ProgressBar HorizontalAlignment="Left" Height="25" Margin="466,225,0,0" VerticalAlignment="Top" Width="272"/>
+
+    </Grid>
+</Window>

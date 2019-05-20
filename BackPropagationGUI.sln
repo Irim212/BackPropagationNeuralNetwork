@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.572
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BackPropagationGUI", "BackPropagationGUI\BackPropagationGUI.csproj", "{393DCF16-6ED6-4721-AE45-EC83C7645E87}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{393DCF16-6ED6-4721-AE45-EC83C7645E87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{393DCF16-6ED6-4721-AE45-EC83C7645E87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{393DCF16-6ED6-4721-AE45-EC83C7645E87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{393DCF16-6ED6-4721-AE45-EC83C7645E87}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EFEF3C94-5C40-494A-B53E-98695B04B1B5}
+	EndGlobalSection
+EndGlobal
