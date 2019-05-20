@@ -11,14 +11,15 @@
 *.userprefs
 
 # Build results
-[Dd]ebug/
+[Dd]ebug/*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
 x64/
 x86/
 bld/
-[Bb]in/
+[Bb]in/*
+![Bb]in/[Dd]ebug/letters/
 [Oo]bj/
 [Ll]og/
 
@@ -259,3 +260,5 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+BackPropagationGUI/bin/Debug/BackPropagationGUI.exe.config
+BackPropagationGUI/bin/Debug/BackPropagationGUI.exe
