@@ -4,19 +4,12 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Ink;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using BackpropagationNeuralNetwork;
+using Path = System.IO.Path;
 
 namespace BackPropagationGUI
 {
@@ -25,7 +18,18 @@ namespace BackPropagationGUI
     /// </summary>
     public partial class MainWindow : Window
     {
-        Bitmap bitmap;
+        private readonly string[] usedLetters = {"a", "p", "q", "z"};
+        private Network network;
+        
+        private readonly List<List<double>> expectedOutputs = new List<List<double>>()
+        {
+            new List<double>(){1, 0, 0, 0},
+            new List<double>(){0, 1, 0, 0},
+            new List<double>(){0, 0, 1, 0},
+            new List<double>(){0, 0, 0, 1}
+        };
+        
+        private Bitmap bitmap;
 
         public MainWindow()
         {
@@ -37,55 +41,87 @@ namespace BackPropagationGUI
             LoadButton.Click += loadButtonClick;
             ReadCanvas.Click += readCanvasClick;
             LearnButton.Click += learnButtonClick;
-
         }
 
         private void learnButtonClick(object sender, RoutedEventArgs e)
         {
-            string expectedValue = ExpectedOutputTextBlock.Text;
-            currentCanvasToBitmap();
-            double[] neuralNetworkInput = readBitmapPoints(bitmap, 10);
+            network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(4)
+                .SetInputLayerNeurons(18).Build();
+
+            string[] files =  Directory.GetFiles(Directory.GetCurrentDirectory() + "/letters");
+
+            foreach (string file in files)
+            {
+                if (Path.GetFileName(file).EndsWith(".bmp")) 
+                    continue;
+                
+                FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read);
+
+                StrokeCollection strokes = new StrokeCollection(fileStream);
+                DrawingCanvas.Strokes = strokes;
+                currentCanvasToBitmap();
+
+                double[] input = readBitmapPoints(bitmap, 20);
+
+                int outputIndex = Array.IndexOf(usedLetters, Path.GetFileNameWithoutExtension(file).Substring(0, 1));
+                
+                network.AddLearningPair(input.ToList(), expectedOutputs[outputIndex]);
+            }
+            
+            
+            network.SingleEraEnded += data =>
+            {
+                Console.WriteLine($"Era: {data.CurrentEra}, Learn progress: {data.LearnProgress}, Overall Error: {data.OverallError}" +
+                                  $", Percentage of error: {data.PercentOfError}");
+            };
+            
+            network.Learn();
         }
 
         private void readCanvasClick(object sender, RoutedEventArgs e)
         {
             currentCanvasToBitmap();
-            readBitmapPoints(bitmap, 10);
+            double[] input = readBitmapPoints(bitmap, 20);
+
+            foreach (double output in network.GetResultForInputs(input.ToList()))
+            {
+                Console.WriteLine(output);
+            }
         }
 
         private void loadButtonClick(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "Image files (*.png;*.bmp;*.gif)|*.png;*.bmp;*.gif|All files (*.*)|*.*";
-            openFileDialog.InitialDirectory = @"C:\Users\Sebastian\source\repos\BackPropagationGUI\BackPropagationGUI\bin\Debug";
-            if (openFileDialog.ShowDialog() == true)
+            OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                foreach (string filename in openFileDialog.FileNames)
-                {
-                    FileName.Text = System.IO.Path.GetFileName(filename);
-                    var fs = new FileStream(System.IO.Path.GetFileName(filename),
-                        FileMode.Open, FileAccess.Read);
-                    StrokeCollection strokes = new StrokeCollection(fs);
-                    DrawingCanvas.Strokes = strokes;
-                }
+                Filter = "Image files (*.png;*.bmp;*.gif)|*.png;*.bmp;*.gif|All files (*.*)|*.*",
+                InitialDirectory = Directory.GetCurrentDirectory() + "/letters"
+            };
+
+            if (openFileDialog.ShowDialog() != true)
+                return;
+            foreach (string filename in openFileDialog.FileNames)
+            {
+                FileName.Text = Path.GetFileName(filename);
+                var fs = new FileStream(Path.GetFileName(filename),
+                    FileMode.Open, FileAccess.Read);
+                StrokeCollection strokes = new StrokeCollection(fs);
+                DrawingCanvas.Strokes = strokes;
             }
         }
 
         private void saveButtonClick(object sender, RoutedEventArgs e)
         {
-            if(FileName.Equals(""))
+            currentCanvasToBitmap();
+
+            if (!Directory.Exists(Directory.GetCurrentDirectory() + "/letters/"))
             {
-                Console.WriteLine("PODAJ NAZWE PLIKU DO ZAPISU");
+                Directory.CreateDirectory(Directory.GetCurrentDirectory() + "/letters/");
             }
-            else
-            {
-                currentCanvasToBitmap();
 
-                bitmap.Save(FileName.Text + ".bmp");    
+            bitmap.Save("letters/" + FileName.Text + ".bmp");
 
-                var fs = new FileStream(FileName.Text, FileMode.Create);
-                DrawingCanvas.Strokes.Save(fs);
-            }   
+            var fs = new FileStream("letters/" + FileName.Text, FileMode.Create);
+            DrawingCanvas.Strokes.Save(fs);
         }
 
         private void eraseButtonClick(object sender, RoutedEventArgs e)
@@ -93,13 +129,13 @@ namespace BackPropagationGUI
             this.DrawingCanvas.Strokes.Clear();
         }
 
-        public void setCanvas(int pencilWidth)
+        private void setCanvas(int pencilWidth)
         {
             DrawingCanvas.DefaultDrawingAttributes.Width = pencilWidth;
             DrawingCanvas.DefaultDrawingAttributes.Height = pencilWidth;
         }
 
-        public void currentCanvasToBitmap()
+        private void currentCanvasToBitmap()
         {
             RenderTargetBitmap renderBitmap = new RenderTargetBitmap(200, 200, 96, 96, PixelFormats.Pbgra32);
             renderBitmap.Render(DrawingCanvas);
@@ -113,28 +149,30 @@ namespace BackPropagationGUI
         }
 
 
-        public static double[] readBitmapPoints(Bitmap bitmap, int pointsAmountPerRow)
+        private static double[] readBitmapPoints(Bitmap bitmap, int pointsAmountPerRow)
         {
-            int arraySize = (bitmap.Height / pointsAmountPerRow) - 1;
+            int arraySize = ((bitmap.Height / pointsAmountPerRow) - 1) * 2;
             Console.WriteLine("Rozmiar tablicy: " + arraySize);
-
+            
             double[] pixelMap = new double[arraySize];
 
             double rowValue = 0;
-            if (bitmap!=null)
+            
+            if (bitmap != null)
             {
                 int size = 0;
 
                 for (int i = pointsAmountPerRow; i < bitmap.Height; i += pointsAmountPerRow)
                 {
-
                     for (int x = pointsAmountPerRow; x < bitmap.Width; x += pointsAmountPerRow)
                     {
-                        if (bitmap.GetPixel(x, i).R != 255 || bitmap.GetPixel(x, i).G != 255 || bitmap.GetPixel(x, i).B != 255)
+                        if (bitmap.GetPixel(x, i).R != 255 || bitmap.GetPixel(x, i).G != 255 ||
+                            bitmap.GetPixel(x, i).B != 255)
                         {
                             rowValue += 1.0;
                         }
                     }
+
                     pixelMap[size] = rowValue / ((bitmap.Width / pointsAmountPerRow) - 1);
                     Console.WriteLine("Wartość dla tablicy pixelMap[" + size + "] = " + pixelMap[size]);
 
@@ -142,15 +180,34 @@ namespace BackPropagationGUI
 
                     rowValue = 0f;
                 }
+                
+                for (int i = pointsAmountPerRow; i < bitmap.Height; i += pointsAmountPerRow)
+                {
+                    for (int x = pointsAmountPerRow; x < bitmap.Width; x += pointsAmountPerRow)
+                    {
+                        if (bitmap.GetPixel(i, x).R != 255 || bitmap.GetPixel(i, x).G != 255 ||
+                            bitmap.GetPixel(i, x).B != 255)
+                        {
+                            rowValue += 1.0;
+                        }
+                    }
+
+                    pixelMap[size] = rowValue / ((bitmap.Width / pointsAmountPerRow) - 1);
+                    Console.WriteLine("Wartość dla tablicy pixelMap[" + size + "] = " + pixelMap[size]);
+
+                    size++;
+
+                    rowValue = 0f;
+                }
+
                 return pixelMap;
             }
             else
             {
                 return null;
             }
+
             return null;
         }
-
-        
     }
 }
