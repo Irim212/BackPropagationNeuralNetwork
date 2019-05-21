@@ -77,6 +77,11 @@ namespace BackpropagationNeuralNetwork
 			networkData.ExpectedOutputs.Add(expectedOutputs);
 		}
 
+		public void SetLearningRate(double learningRate)
+		{
+			networkConfiguration.LearningRate = learningRate;
+		}
+
 		public void Learn()
 		{
 			List<int> usedInputs = new List<int>();
@@ -88,7 +93,7 @@ namespace BackpropagationNeuralNetwork
 			{
 				usedInputs.Clear();
 
-				for (int i = 0; i < networkData.Inputs.Count; i++)
+				foreach (List<double> inputs in networkData.Inputs)
 				{
 					int currentInput;
 
@@ -234,7 +239,7 @@ namespace BackpropagationNeuralNetwork
 				for(int j = 0; j < networkData.ActualOutputs[i].Count; j++)
 				{
 					networkData.OverallError +=
-						0.5 * (Math.Pow(networkData.ExpectedOutputs[i][j] - networkData.ActualOutputs[i][j], 2));
+						0.5d * (Math.Pow(networkData.ExpectedOutputs[i][j] - networkData.ActualOutputs[i][j], 2));
 				}
 			}
 		}

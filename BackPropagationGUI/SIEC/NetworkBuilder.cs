@@ -61,6 +61,8 @@ namespace BackpropagationNeuralNetwork
 			if (maxEras < 1)
 				throw new ArgumentException("Network should have at least one era to learn.");
 
+			networkConfiguration.MaxEras = maxEras;
+			
 			return this;
 		}
 
