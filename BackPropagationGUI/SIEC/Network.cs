@@ -64,6 +64,11 @@ namespace BackpropagationNeuralNetwork
 		{
 			initializeNetwork(networkConfiguration);
 		}
+
+		public int GetInputLayerSize()
+		{
+			return layers.getInputLayer().getNeurons().Count;
+		}
 		
 		public void AddLearningPair(List<double> inputs, List<double> expectedOutputs)
 		{
@@ -84,26 +89,14 @@ namespace BackpropagationNeuralNetwork
 
 		public void Learn()
 		{
-			List<int> usedInputs = new List<int>();
-			List<double> currentOutputs = new List<double>();
-
 			int era = 0;
 
+			Random r = new Random();
+			
 			do
 			{
-				usedInputs.Clear();
-
-				foreach (List<double> inputs in networkData.Inputs)
+				foreach(int currentInput in Enumerable.Range(0, networkData.Inputs.Count).OrderBy(x => r.Next()))
 				{
-					int currentInput;
-
-					do
-					{
-						currentInput = RandomHelper.GetRandomInRange(0, networkData.Inputs.Count);
-					} while (usedInputs.Contains(currentInput));
-
-					usedInputs.Add(currentInput);
-
 					int k = 0;
 
 					foreach (Neuron neuron in layers.getInputLayer().getNeurons())
@@ -115,14 +108,14 @@ namespace BackpropagationNeuralNetwork
 					calculateSignalErrors(networkData.ExpectedOutputs[currentInput]);
 					updateWeights();
 
-					currentOutputs.Clear();
-					
+					List<double> currentOutputs = new List<double>();
+
 					foreach (Neuron neuron in layers.getOutputLayer().getNeurons())
 					{
 						currentOutputs.Add(neuron.getOutput());
 					}
 
-					networkData.ActualOutputs[currentInput] = currentOutputs;
+					networkData.ActualOutputs[currentInput] = new List<double>(currentOutputs);
 				}
 
 				updateOverallError();

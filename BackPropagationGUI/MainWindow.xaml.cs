@@ -19,7 +19,7 @@ namespace BackPropagationGUI
     /// <summary>
     /// Logika interakcji dla klasy MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow
     {
         private readonly string[] usedLetters = {"a", "p", "q", "z"};
         private Network network;
@@ -48,8 +48,8 @@ namespace BackPropagationGUI
 
         private void learnButtonClick(object sender, RoutedEventArgs e)
         {
-            network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(4).SetLearningRate(0.05d).SetHiddenLayerNeurons(8)
-                .SetInputLayerNeurons(20).SetMaxEras(15000).SetMomentum(0.05d).Build();
+            network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(4).SetHiddenLayerNeurons(8)
+                .SetInputLayerNeurons(8).SetMaxEras(5000).Build();
 
             string[] files = Directory.GetFiles(Directory.GetCurrentDirectory() + "/letters");
 
@@ -64,7 +64,7 @@ namespace BackPropagationGUI
                 DrawingCanvas.Strokes = strokes;
                 currentCanvasToBitmap();
 
-                double[] input = readBitmapPoints(bitmap, 20);
+                IEnumerable<double> input = readBitmapPoints(bitmap, 8);
 
                 int outputIndex = Array.IndexOf(usedLetters, Path.GetFileNameWithoutExtension(file).Substring(0, 1));
 
@@ -84,12 +84,16 @@ namespace BackPropagationGUI
         private void readCanvasClick(object sender, RoutedEventArgs e)
         {
             currentCanvasToBitmap();
-            double[] input = readBitmapPoints(bitmap, 20);
+            IEnumerable<double> input = readBitmapPoints(bitmap, 8);
+
+            Console.WriteLine();
 
             foreach (double output in network.GetResultForInputs(input.ToList()))
             {
                 Console.WriteLine(output);
             }
+
+            Console.WriteLine();
         }
 
         private void loadButtonClick(object sender, RoutedEventArgs e)
@@ -129,7 +133,11 @@ namespace BackPropagationGUI
 
         private void eraseButtonClick(object sender, RoutedEventArgs e)
         {
-            this.DrawingCanvas.Strokes.Clear();
+            Console.WriteLine(DrawingCanvas.Strokes.Count);
+
+            Stroke stroke = DrawingCanvas.Strokes[0];
+            
+            DrawingCanvas.Strokes.Clear();
         }
 
         private void setCanvas(int pencilWidth)
@@ -152,18 +160,19 @@ namespace BackPropagationGUI
         }
 
 
-        private static double[] readBitmapPoints(Bitmap bitmap, int linesPerAxis)
+        private IEnumerable<double> readBitmapPoints(Bitmap currentBitmap, int inputNeurons)
         {
-            int rightSideStart = 0, bottomSideStart = 0, topSideStart = bitmap.Height, leftSideStart = bitmap.Width;
+            int rightSideStart = 0,
+                bottomSideStart = 0,
+                topSideStart = currentBitmap.Height,
+                leftSideStart = currentBitmap.Width;
 
-            for (int x = 0; x < bitmap.Width; x++)
+            for (int x = 0; x < currentBitmap.Width; x++)
             {
-                for (int y = 0; y < bitmap.Height; y++)
+                for (int y = 0; y < currentBitmap.Height; y++)
                 {
-                    if (!isPixelIsNotWhite(bitmap.GetPixel(x, y)))
+                    if (!isPixelIsNotWhite(currentBitmap.GetPixel(x, y)))
                         continue;
-
-                    Color color = bitmap.GetPixel(x, y);
 
                     if (y > bottomSideStart)
                         bottomSideStart = y;
@@ -179,34 +188,48 @@ namespace BackPropagationGUI
                 }
             }
 
-            double[] output = new double[linesPerAxis];
+            leftSideStart--;
+            topSideStart--;
+            rightSideStart++;
+            bottomSideStart++;
 
-            float horizontalStep = (rightSideStart - leftSideStart) / (float) linesPerAxis;
-            float verticalStep = (bottomSideStart - topSideStart) / (float) linesPerAxis;
+            Bitmap newBitmap = new Bitmap(200, 200);
 
-            for (int i = 0; i < linesPerAxis; i++)
+            using (Graphics graphics = Graphics.FromImage(newBitmap))
             {
-                int x = leftSideStart + (int) (i * horizontalStep);
+                Rectangle destRegion = new Rectangle(0, 0, 200, 200);
+                Rectangle drawRegion = new Rectangle(leftSideStart, topSideStart, rightSideStart - leftSideStart,
+                    bottomSideStart - topSideStart);
+                graphics.DrawImage(currentBitmap, destRegion, drawRegion, GraphicsUnit.Pixel);
+            }
 
-                for (int j = 0; j < linesPerAxis; j++)
+            newBitmap.Save("tempbitmap.bmp");
+
+            List<double> output = new List<double>();
+
+            for (int i = 0; i < 200; i += 200 / inputNeurons)
+            {
+                int counterX = 0;
+
+                for (int j = 0; j < 200; j += 200 / inputNeurons)
                 {
-                    int y = topSideStart + (int) (j * verticalStep);
-
-                    if (isPixelIsNotWhite(bitmap.GetPixel(x, y)))
+                    if (isPixelIsNotWhite(newBitmap.GetPixel(i, j)))
                     {
-                        output[i] += 1d;
+                        counterX++;
                     }
                 }
+
+                output.Add(counterX);
             }
 
             double max = output.Max();
             double min = output.Min();
-            
-            for (int i = 0; i < output.Length; i++)
+
+            for (int i = 0; i < output.Count; i++)
             {
                 output[i] = (output[i] - min) / (max - min);
-            }      
-                   
+            }
+
             return output;
         }
 
