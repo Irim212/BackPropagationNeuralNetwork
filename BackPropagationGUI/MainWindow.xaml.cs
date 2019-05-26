@@ -21,15 +21,14 @@ namespace BackPropagationGUI
     /// </summary>
     public partial class MainWindow
     {
-        private readonly string[] usedLetters = {"a", "p", "q", "z"};
+        private readonly string[] usedLetters = {"a", "q", "z"};
         private Network network;
 
         private readonly List<List<double>> expectedOutputs = new List<List<double>>()
         {
-            new List<double>() {1, 0, 0, 0},
-            new List<double>() {0, 1, 0, 0},
-            new List<double>() {0, 0, 1, 0},
-            new List<double>() {0, 0, 0, 1}
+            new List<double>() {1, 0, 0},
+            new List<double>() {0, 1, 0},
+            new List<double>() {0, 0, 1}
         };
 
         private Bitmap bitmap;
@@ -48,8 +47,8 @@ namespace BackPropagationGUI
 
         private void learnButtonClick(object sender, RoutedEventArgs e)
         {
-            network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(4).SetHiddenLayerNeurons(8)
-                .SetInputLayerNeurons(8).SetMaxEras(5000).Build();
+            network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(3)
+                .SetInputLayerNeurons(20).SetMaxEras(200000).SetHiddenLayerNeurons(7).Build();
 
             string[] files = Directory.GetFiles(Directory.GetCurrentDirectory() + "/letters");
 
@@ -64,7 +63,7 @@ namespace BackPropagationGUI
                 DrawingCanvas.Strokes = strokes;
                 currentCanvasToBitmap();
 
-                IEnumerable<double> input = readBitmapPoints(bitmap, 8);
+                IEnumerable<double> input = readBitmapPoints(bitmap, 10);
 
                 int outputIndex = Array.IndexOf(usedLetters, Path.GetFileNameWithoutExtension(file).Substring(0, 1));
 
@@ -73,9 +72,12 @@ namespace BackPropagationGUI
 
             network.SingleEraEnded += data =>
             {
-                Console.WriteLine(
-                    $"Era: {data.CurrentEra}, Learn progress: {data.LearnProgress}, Overall Error: {data.OverallError}" +
-                    $", Percentage of error: {data.PercentOfError}");
+                if ((data.CurrentEra + 1) % 10000 == 0 || data.CurrentEra == 0 || data.PercentOfError >= 100)
+                {
+                    Console.WriteLine(
+                        $"Era: {data.CurrentEra + 1}, Learn progress: {data.LearnProgress}, Overall Error: {data.OverallError}" +
+                        $", Percentage of error: {data.PercentOfError}");
+                }
             };
 
             network.Learn();
@@ -84,7 +86,7 @@ namespace BackPropagationGUI
         private void readCanvasClick(object sender, RoutedEventArgs e)
         {
             currentCanvasToBitmap();
-            IEnumerable<double> input = readBitmapPoints(bitmap, 8);
+            IEnumerable<double> input = readBitmapPoints(bitmap, 10);
 
             Console.WriteLine();
 
@@ -205,31 +207,31 @@ namespace BackPropagationGUI
 
             newBitmap.Save("tempbitmap.bmp");
 
-            List<double> output = new List<double>();
+            List<double> horizontalLines = new List<double>();
+            List<double> verticalLines = new List<double>();
 
             for (int i = 0; i < 200; i += 200 / inputNeurons)
             {
                 int counterX = 0;
+                int counterY = 0;
 
                 for (int j = 0; j < 200; j += 200 / inputNeurons)
                 {
                     if (isPixelIsNotWhite(newBitmap.GetPixel(i, j)))
                     {
                         counterX++;
+                        counterY++;
                     }
                 }
 
-                output.Add(counterX);
+                horizontalLines.Add(counterX / (double)inputNeurons);
+                verticalLines.Add(counterY / (double)inputNeurons);
             }
 
-            double max = output.Max();
-            double min = output.Min();
-
-            for (int i = 0; i < output.Count; i++)
-            {
-                output[i] = (output[i] - min) / (max - min);
-            }
-
+            List<double> output = new List<double>();
+            output.AddRange(horizontalLines);
+            output.AddRange(verticalLines);
+            
             return output;
         }
 
