@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.Remoting.Lifetime;
@@ -10,9 +11,12 @@ using System.Windows;
 using System.Windows.Ink;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Accord.Imaging.Filters;
+using Accord.Statistics.Filters;
 using BackpropagationNeuralNetwork;
 using Color = System.Drawing.Color;
 using Path = System.IO.Path;
+using PixelFormat = System.Drawing.Imaging.PixelFormat;
 
 namespace BackPropagationGUI
 {
@@ -21,7 +25,7 @@ namespace BackPropagationGUI
     /// </summary>
     public partial class MainWindow
     {
-        private readonly string[] usedLetters = {"a", "q", "z"};
+        private readonly string[] usedSigns = {"0", "60", "z"};
         private Network network;
 
         private readonly List<List<double>> expectedOutputs = new List<List<double>>()
@@ -31,41 +35,31 @@ namespace BackPropagationGUI
             new List<double>() {0, 0, 1}
         };
 
-        private Bitmap bitmap;
-
         public MainWindow()
         {
             InitializeComponent();
-            setCanvas(2);
-
-            EraseButton.Click += eraseButtonClick;
-            SaveButton.Click += saveButtonClick;
+            
             LoadButton.Click += loadButtonClick;
-            ReadCanvas.Click += readCanvasClick;
             LearnButton.Click += learnButtonClick;
         }
 
         private void learnButtonClick(object sender, RoutedEventArgs e)
         {
             network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(3)
-                .SetInputLayerNeurons(20).SetMaxEras(200000).SetHiddenLayerNeurons(7).Build();
+                .SetInputLayerNeurons(20).SetMaxEras(200000).SetHiddenLayerNeurons(5).Build();
 
-            string[] files = Directory.GetFiles(Directory.GetCurrentDirectory() + "/letters");
+            string[] files = Directory.GetFiles(Directory.GetCurrentDirectory() + "/Images");
 
             foreach (string file in files)
             {
                 if (Path.GetFileName(file).EndsWith(".bmp"))
                     continue;
 
-                FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read);
+                Bitmap bmp = new Bitmap(file);
 
-                StrokeCollection strokes = new StrokeCollection(fileStream);
-                DrawingCanvas.Strokes = strokes;
-                currentCanvasToBitmap();
+                IEnumerable<double> input = readBitmapPoints(bmp, 10, Path.GetFileNameWithoutExtension(file));
 
-                IEnumerable<double> input = readBitmapPoints(bitmap, 10);
-
-                int outputIndex = Array.IndexOf(usedLetters, Path.GetFileNameWithoutExtension(file).Substring(0, 1));
+                int outputIndex = Array.IndexOf(usedSigns, Path.GetFileNameWithoutExtension(file).Split('_')[0]);
 
                 network.AddLearningPair(input.ToList(), expectedOutputs[outputIndex]);
             }
@@ -83,129 +77,32 @@ namespace BackPropagationGUI
             network.Learn();
         }
 
-        private void readCanvasClick(object sender, RoutedEventArgs e)
-        {
-            currentCanvasToBitmap();
-            IEnumerable<double> input = readBitmapPoints(bitmap, 10);
-
-            Console.WriteLine();
-
-            foreach (double output in network.GetResultForInputs(input.ToList()))
-            {
-                Console.WriteLine(output);
-            }
-
-            Console.WriteLine();
-        }
-
         private void loadButtonClick(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog
+            OpenFileDialog dialog = new OpenFileDialog();
+            dialog.Filter = "Image files (*.jpg, *.jpeg, *.png) | *.jpg; *.jpeg; *.png";
+            dialog.InitialDirectory = Directory.GetCurrentDirectory();
+            dialog.Title = "Please select an image file to process.";
+
+            if (dialog.ShowDialog() == true)
             {
-                Filter = "Image files (*.png;*.bmp;*.gif)|*.png;*.bmp;*.gif|All files (*.*)|*.*",
-                InitialDirectory = Directory.GetCurrentDirectory() + "/letters"
-            };
+                Bitmap bmp = new Bitmap(dialog.FileName);
+                
+                IEnumerable<double> input = readBitmapPoints(bmp, 10, Path.GetFileNameWithoutExtension(dialog.FileName));
 
-            if (openFileDialog.ShowDialog() != true)
-                return;
-            foreach (string filename in openFileDialog.FileNames)
-            {
-                FileName.Text = Path.GetFileName(filename);
-                var fs = new FileStream(Path.GetFileName(filename),
-                    FileMode.Open, FileAccess.Read);
-                StrokeCollection strokes = new StrokeCollection(fs);
-                DrawingCanvas.Strokes = strokes;
-            }
-        }
-
-        private void saveButtonClick(object sender, RoutedEventArgs e)
-        {
-            currentCanvasToBitmap();
-
-            if (!Directory.Exists(Directory.GetCurrentDirectory() + "/letters/"))
-            {
-                Directory.CreateDirectory(Directory.GetCurrentDirectory() + "/letters/");
-            }
-
-            bitmap.Save("letters/" + FileName.Text + ".bmp");
-
-            var fs = new FileStream("letters/" + FileName.Text, FileMode.Create);
-            DrawingCanvas.Strokes.Save(fs);
-        }
-
-        private void eraseButtonClick(object sender, RoutedEventArgs e)
-        {
-            Console.WriteLine(DrawingCanvas.Strokes.Count);
-
-            Stroke stroke = DrawingCanvas.Strokes[0];
-            
-            DrawingCanvas.Strokes.Clear();
-        }
-
-        private void setCanvas(int pencilWidth)
-        {
-            DrawingCanvas.DefaultDrawingAttributes.Width = pencilWidth;
-            DrawingCanvas.DefaultDrawingAttributes.Height = pencilWidth;
-        }
-
-        private void currentCanvasToBitmap()
-        {
-            RenderTargetBitmap renderBitmap = new RenderTargetBitmap(200, 200, 96, 96, PixelFormats.Pbgra32);
-            renderBitmap.Render(DrawingCanvas);
-
-            BitmapEncoder encoder = new BmpBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
-            MemoryStream ms = new MemoryStream();
-            encoder.Save(ms);
-
-            bitmap = new Bitmap(ms);
-        }
-
-
-        private IEnumerable<double> readBitmapPoints(Bitmap currentBitmap, int inputNeurons)
-        {
-            int rightSideStart = 0,
-                bottomSideStart = 0,
-                topSideStart = currentBitmap.Height,
-                leftSideStart = currentBitmap.Width;
-
-            for (int x = 0; x < currentBitmap.Width; x++)
-            {
-                for (int y = 0; y < currentBitmap.Height; y++)
+                foreach (double output in network.GetResultForInputs(input.ToList()))
                 {
-                    if (!isPixelIsNotWhite(currentBitmap.GetPixel(x, y)))
-                        continue;
-
-                    if (y > bottomSideStart)
-                        bottomSideStart = y;
-
-                    if (x > rightSideStart)
-                        rightSideStart = x;
-
-                    if (y < topSideStart)
-                        topSideStart = y;
-
-                    if (x < leftSideStart)
-                        leftSideStart = x;
+                    Console.WriteLine(output);
                 }
             }
+        }
 
-            leftSideStart--;
-            topSideStart--;
-            rightSideStart++;
-            bottomSideStart++;
 
-            Bitmap newBitmap = new Bitmap(200, 200);
-
-            using (Graphics graphics = Graphics.FromImage(newBitmap))
-            {
-                Rectangle destRegion = new Rectangle(0, 0, 200, 200);
-                Rectangle drawRegion = new Rectangle(leftSideStart, topSideStart, rightSideStart - leftSideStart,
-                    bottomSideStart - topSideStart);
-                graphics.DrawImage(currentBitmap, destRegion, drawRegion, GraphicsUnit.Pixel);
-            }
-
-            newBitmap.Save("tempbitmap.bmp");
+        private IEnumerable<double> readBitmapPoints(Bitmap currentBitmap, int inputNeurons, string fileName)
+        {
+            currentBitmap = processBitmap(currentBitmap);
+            
+            currentBitmap.Save(fileName + ".jpg", ImageFormat.Jpeg);
 
             List<double> horizontalLines = new List<double>();
             List<double> verticalLines = new List<double>();
@@ -217,7 +114,7 @@ namespace BackPropagationGUI
 
                 for (int j = 0; j < 200; j += 200 / inputNeurons)
                 {
-                    if (isPixelIsNotWhite(newBitmap.GetPixel(i, j)))
+                    if (isPixelWhite(currentBitmap.GetPixel(i, j)))
                     {
                         counterX++;
                         counterY++;
@@ -235,9 +132,47 @@ namespace BackPropagationGUI
             return output;
         }
 
-        private static bool isPixelIsNotWhite(Color color)
+        private Bitmap processBitmap(Bitmap bitmap)
         {
-            return color.R != 255 || color.G != 255 || color.B != 255;
+            Grayscale grayscale = new Grayscale(1, 1, 1);
+            GaborFilter gaborFilter = new GaborFilter();
+            gaborFilter.Gamma *= 25;
+            gaborFilter.Lambda *= 25;
+            gaborFilter.Psi *= 25;
+            gaborFilter.Theta *= 25;
+                
+            BrightnessCorrection brightnessCorrection = new BrightnessCorrection(40);
+            Sharpen sharpen = new Sharpen();
+            Threshold threshold = new Threshold(140);
+            Mean mean = new Mean();
+            Median median = new Median();
+            
+            ContrastCorrection contrastCorrection = new ContrastCorrection(50);
+            
+            Bitmap returnBitmap = mean.Apply(bitmap);
+            returnBitmap = median.Apply(returnBitmap);
+            returnBitmap = gaborFilter.Apply(returnBitmap);
+            returnBitmap = brightnessCorrection.Apply(returnBitmap);
+            returnBitmap = grayscale.Apply(returnBitmap);
+            returnBitmap = sharpen.Apply(returnBitmap);
+            returnBitmap = contrastCorrection.Apply(returnBitmap);
+
+            Console.WriteLine(Accord.Imaging.Tools.Mean(returnBitmap));
+            //returnBitmap = threshold.Apply(returnBitmap);
+
+            Bitmap bmp = new Bitmap(200, 200);
+
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.DrawImage(returnBitmap, 0, 0, 200, 200);
+
+                return bmp.Clone(new Rectangle(0, 0, 200, 200), PixelFormat.Format8bppIndexed);
+            }
+        }
+
+        private static bool isPixelWhite(Color color)
+        {
+            return color.R == 255 && color.G == 255 && color.B == 255;
         }
     }
 }
