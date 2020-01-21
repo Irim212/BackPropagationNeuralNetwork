@@ -5,18 +5,17 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Lifetime;
-using System.Runtime.Remoting.Messaging;
 using System.Windows;
-using System.Windows.Ink;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Windows.Interop;
+using Accord.Imaging;
+using Accord.Imaging.ComplexFilters;
 using Accord.Imaging.Filters;
-using Accord.Statistics.Filters;
+using Accord.Statistics.Kernels;
 using BackpropagationNeuralNetwork;
 using Color = System.Drawing.Color;
 using Path = System.IO.Path;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
+using Tools = Accord.Math.Tools;
 
 namespace BackPropagationGUI
 {
@@ -46,7 +45,7 @@ namespace BackPropagationGUI
         private void learnButtonClick(object sender, RoutedEventArgs e)
         {
             network = NetworkBuilder.GetBuilder().SetOutputLayerNeurons(3)
-                .SetInputLayerNeurons(20).SetMaxEras(200000).SetHiddenLayerNeurons(5).Build();
+                .SetInputLayerNeurons(26).SetMaxEras(200000).SetHiddenLayerNeurons(7).Build();
 
             string[] files = Directory.GetFiles(Directory.GetCurrentDirectory() + "/Images");
 
@@ -100,6 +99,17 @@ namespace BackPropagationGUI
 
         private IEnumerable<double> readBitmapPoints(Bitmap currentBitmap, int inputNeurons, string fileName)
         {
+            ImageStatistics imageStatistics = new ImageStatistics(currentBitmap);
+
+            List<double> output = new List<double>();
+            
+            output.Add(imageStatistics.Blue.Min / 255f);
+            output.Add(imageStatistics.Red.Min / 255f);
+            output.Add(imageStatistics.Blue.Max / 255f);
+            output.Add(imageStatistics.Red.Max / 255f);
+            output.Add(imageStatistics.Blue.Mean / 255f);
+            output.Add(imageStatistics.Red.Mean / 255f);
+            
             currentBitmap = processBitmap(currentBitmap);
             
             currentBitmap.Save(fileName + ".jpg", ImageFormat.Jpeg);
@@ -124,41 +134,19 @@ namespace BackPropagationGUI
                 horizontalLines.Add(counterX / (double)inputNeurons);
                 verticalLines.Add(counterY / (double)inputNeurons);
             }
-
-            List<double> output = new List<double>();
+            
             output.AddRange(horizontalLines);
             output.AddRange(verticalLines);
-            
+
             return output;
         }
 
         private Bitmap processBitmap(Bitmap bitmap)
         {
-            Grayscale grayscale = new Grayscale(1, 1, 1);
-            GaborFilter gaborFilter = new GaborFilter();
-            gaborFilter.Gamma *= 25;
-            gaborFilter.Lambda *= 25;
-            gaborFilter.Psi *= 25;
-            gaborFilter.Theta *= 25;
-                
-            BrightnessCorrection brightnessCorrection = new BrightnessCorrection(40);
-            Sharpen sharpen = new Sharpen();
-            Threshold threshold = new Threshold(140);
-            Mean mean = new Mean();
-            Median median = new Median();
-            
-            ContrastCorrection contrastCorrection = new ContrastCorrection(50);
-            
-            Bitmap returnBitmap = mean.Apply(bitmap);
-            returnBitmap = median.Apply(returnBitmap);
-            returnBitmap = gaborFilter.Apply(returnBitmap);
-            returnBitmap = brightnessCorrection.Apply(returnBitmap);
-            returnBitmap = grayscale.Apply(returnBitmap);
-            returnBitmap = sharpen.Apply(returnBitmap);
-            returnBitmap = contrastCorrection.Apply(returnBitmap);
-
-            Console.WriteLine(Accord.Imaging.Tools.Mean(returnBitmap));
-            //returnBitmap = threshold.Apply(returnBitmap);
+            Bitmap returnBitmap = new SaturationCorrection(0.2f).Apply(bitmap);
+            returnBitmap = Grayscale.CommonAlgorithms.RMY.Apply(returnBitmap);
+            returnBitmap = new KirschEdgeDetector().Apply(returnBitmap);
+            returnBitmap = new Threshold(70).Apply(returnBitmap);
 
             Bitmap bmp = new Bitmap(200, 200);
 
