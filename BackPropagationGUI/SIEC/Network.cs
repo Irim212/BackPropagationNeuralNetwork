@@ -87,6 +87,11 @@ namespace BackpropagationNeuralNetwork
 			networkConfiguration.LearningRate = learningRate;
 		}
 
+		public void SetMomentum(double momentum)
+		{
+			networkConfiguration.Momentum = momentum;
+		}
+
 		public void Learn()
 		{
 			int era = 0;
